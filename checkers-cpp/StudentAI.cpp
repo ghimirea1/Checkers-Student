@@ -4,7 +4,7 @@
 #include <string>
 using namespace std;
 const bool DEBUG = false;
-const int DEPTH = 3;
+const int DEPTH = 5;
 //The following part should be completed by students.
 //The students can modify anything except the class name and exisiting functions and varibles.
 StudentAI::StudentAI(int col,int row,int p)
@@ -27,9 +27,20 @@ Move StudentAI::GetMove(Move move)
     // minimax move
     Board board_copy = board;
     Move res;
+
+    bool max;
+    if (player == 1)
+    {
+        max = true;
+    }
+    else
+    {
+        max = false;
+    }
+
     // higher depth, better ai, longer run
-    int max = minimax (board_copy, res, DEPTH, true);
-    if (DEBUG) { cout << "minimax: " << max << " res: " << res.toString() << endl; }
+    int best_move = minimax (board_copy, res, DEPTH, max);
+    if (DEBUG) { cout << "minimax: " << best_move << " res: " << res.toString() << endl; }
     if (DEBUG) { cout << "making move (main): " << res.toString() << endl; }
     board.makeMove (res, player);
     return res;
@@ -37,7 +48,7 @@ Move StudentAI::GetMove(Move move)
 
 int StudentAI::minimax (Board board, Move& res, int depth, bool max)
 {
-    string turn = "";
+    string turn;
     if (max)
     {
         turn = "B";
@@ -92,7 +103,6 @@ int StudentAI::minimax (Board board, Move& res, int depth, bool max)
         int best_move;
         int best_i;
         int best_j;
-        // int min_evaluation;
         int min_evaluation_found = 99; // inf?
         vector<vector<Move> > moves = board.getAllPossibleMoves (2);
         for (int i = 0; i < moves.size(); i++) 
