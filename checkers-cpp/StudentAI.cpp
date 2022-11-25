@@ -1,7 +1,5 @@
 #include "StudentAI.h"
-#include <random>
-#include <cmath>
-#include <string>
+
 using namespace std;
 const bool DEBUG = false;
 const int DEPTH = 5;
@@ -40,6 +38,10 @@ Move StudentAI::GetMove(Move move)
         max = false;
     }
 
+    res = mcts (board_copy, res, player);
+    board.makeMove (res, player);
+    return res;
+
     // The greater the depth of the initial call to minimax, the deeper the tree and the longer the algorithm runs
     // Now we call minimax to use the minimax algorithm and make the resulting move
     int best_move = minimax (board_copy, res, DEPTH, max);
@@ -47,6 +49,28 @@ Move StudentAI::GetMove(Move move)
     if (DEBUG) { cout << "making move (main): " << res.toString() << endl; }
     board.makeMove (res, player);
     return res;
+}
+
+Move StudentAI::mcts (Board board, Move& res, int player)
+{
+    vector<vector<Move> > moves = board.getAllPossibleMoves (player);
+    res = moves[0][0];
+    Node n;
+    n.board = board;
+
+    MCTS m = MCTS (board, player);
+    // cout << "moves: ";
+	for (int i = 0; i < moves.size(); i++) 
+    {
+        for (int j = 0; j < moves[i].size(); j++)
+		{
+            // cout << moves[i][j].toString() << " | ";
+        }
+    }
+    // cout << endl;
+
+    Move move = m.best_move();
+    return move;
 }
 
 /**
