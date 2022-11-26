@@ -22,15 +22,15 @@ Move StudentAI::GetMove(Move move)
     }
 
     vector<vector<Move> > moves = board.getAllPossibleMoves (player);
-    
-    // Minimax move
     Move res = moves[0][0];
-    res = minimax_move (board, player);
-    board.makeMove (res, player);
-    return res;
+
+    // Minimax move
+    // res = minimax_move (board, player);
+    // board.makeMove (res, player);
+    // return res;
 
     // Mcts move
-    // res = mcts (board_copy, res, player);
+    // res = mcts (board, res, player);
     // board.makeMove (res, player);
     // return res;
 }
@@ -48,7 +48,6 @@ Move StudentAI::mcts (Board board, Move& res, int player)
 Move StudentAI::minimax_move (Board board, int player)
 {
     vector<vector<Move> > moves = board.getAllPossibleMoves (player);
-    Board board_copy = board;
     Move res = moves[0][0];
 
     // If we are player 1 (Black) we are the maximizing player
@@ -66,7 +65,7 @@ Move StudentAI::minimax_move (Board board, int player)
 
     // The greater the depth of the initial call to minimax, the deeper the tree and the longer the algorithm runs
     // Now we call minimax to use the minimax algorithm and make the resulting move
-    int best_move = minimax (board_copy, res, DEPTH, max, -99, 99);
+    int best_move = minimax (board, res, DEPTH, max, -99, 99);
     if (DEBUG) { cout << "minimax: " << best_move << " res: " << res.toString() << endl; }
     if (DEBUG) { cout << "making move (main): " << res.toString() << endl; }
     return res;
