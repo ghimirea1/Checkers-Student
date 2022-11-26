@@ -25,9 +25,15 @@ Move StudentAI::GetMove(Move move)
     Move res = moves[0][0];
 
     // Minimax move
+<<<<<<< alpha-beta-pruning
     res = minimax_move (board, player);
     board.makeMove (res, player);
     return res;
+=======
+    // res = minimax_move (board, player);
+    // board.makeMove (res, player);
+    // return res;
+>>>>>>> main
 
     // Mcts move
     // res = mcts (board, res, player);
