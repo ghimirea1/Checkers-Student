@@ -173,7 +173,6 @@ class MCTS
 			if (node->children[i].get_uct() == highest_utc_found)
 			{
 				highest_utc_found_index = i;
-
 			}
 		}
 
