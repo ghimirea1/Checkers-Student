@@ -4,8 +4,10 @@
 #include "Board.h"
 #pragma once
 #include <random>
+#include <ctime>
 #include <cmath>
 #include <string>
+const bool DEBUG = false;
 
 //The following part should be completed by students.
 //Students can modify anything except the class name and exisiting functions and varibles.
@@ -16,7 +18,9 @@ public:
 	StudentAI(int col, int row, int p);
 	virtual Move GetMove(Move board);
 	Move mcts (Board board, Move& res, int player);
-	int minimax (Board board, Move& res, int depth, bool max);
+	Move minimax_move (Board board, int player);
+	int minimax (Board board, Move& res, int depth, bool max, int alpha, int beta);
+	int count_kings (Board b, int player);
 };
 
 class Node
@@ -26,7 +30,8 @@ class Node
 	vector <Node> children;
 	Board board;
 	int player;
-	int wins;
+	int turn;
+	double wins;
 	int simulations;
 	double uct;
 	Move move;
@@ -37,11 +42,13 @@ class Node
 		children = vector<Node>();
 		board = Board();
 		player = 0;
+		turn = 0;
 		wins = 0;
 		simulations = 0;
 		uct = 0;
 		move = Move();
 	}
+
 	Node (Node* p, vector<Node> c, Board b, int pl, int w, int s, double u, Move m)
 	{
 		parent = p;
@@ -56,7 +63,16 @@ class Node
 
 	void update_uct()
 	{
-		uct = ((wins / simulations) + sqrt (log (parent->simulations) / simulations));
+		if (simulations)
+		{
+			uct = ((wins / simulations) + (sqrt (1) * sqrt (log (parent->simulations) / simulations)));
+		}
+	}
+
+	double get_uct()
+	{
+		update_uct();
+		return uct;
 	}
 
 	int generate_children()
@@ -68,6 +84,38 @@ class Node
 			{
 				children.push_back (Node (this, vector<Node>(), board, player, 0, 0, 0, moves[i][j]));
 			}
+
+		}
+
+		for (int i = 0; i < children.size(); i++)
+		{
+			children[i].make_move();
+		}
+
+		return children.size();
+	}
+
+	int generate_children (int turn)
+	{
+		int op;
+		if (player == 1) {op = 2;}
+		if (player == 2) {op = 1;}
+		vector<vector<Move> > moves = board.getAllPossibleMoves (op);
+		// vector<vector<Move> > moves = board.getAllPossibleMoves (o);
+	
+		for (int i = 0; i < moves.size(); i++) 
+        {
+            for (int j = 0; j < moves[i].size(); j++)
+			{
+				children.push_back (Node (this, vector<Node>(), board, op, 0, 0, 0, moves[i][j]));
+			}
+
+		}
+		
+		
+		for (int i = 0; i < children.size(); i++)
+		{
+			children[i].make_move();
 		}
 
 		return children.size();
@@ -91,38 +139,58 @@ class Node
 		}
 
 		vector<vector<Move> > moves = board.getAllPossibleMoves (opponent);
-		int rand_i = rand() % moves.size();
-		if (moves.size() == 0) { break; }
-		int rand_j = rand() % moves[rand_i].size();
-		if (moves[rand_i].size() == 0) { break; }
-		Move opponent_move = moves[rand_i][rand_j];
-		board.makeMove (opponent_move, opponent);
+		
+		if (moves.size())
+		{
+			srand (time(NULL));
+			int rand_i = rand() % moves.size();
+			int rand_j = rand() % moves[rand_i].size();
+			Move opponent_move = moves[rand_i][rand_j];
+			board.makeMove (opponent_move, opponent);
+		}
 	}
 
+	int simulate()
+	{
+		Node n = *this;
+		while (n.board.isWin (player) == 0)
+		{
+			// cout << "simulating: " << endl;
+			// n.board.showBoard();
+			n.generate_children (1);
+			if (n.children.size() == 0) { break; }
+			vector<Node> v = n.children;
+			srand(time(NULL));
+			n = v[rand() % v.size()];
+		}
+
+		return n.board.isWin (n.player);
+	}
 };
 
 class MCTS
 {
 	public:
 	MCTS (Board b, int player)
-	{
+	{		
+		srand (time(NULL));
 		root = Node();
 		root.parent = NULL;
 		root.board = b;
-		root.player = player;
-		root.generate_children();
+		root.player = 2;
+		root.turn = player;
+		root.generate_children (root.player);
 	}
 
 	Node root;
-	
 	Node selection (Node node)
 	{
 		double highest_utc_found = -999;
 		int highest_utc_found_index = -999;
 		for (int i = 0; i < node.children.size(); i++)
 		{
-			highest_utc_found = fmax (highest_utc_found, node.children[i].uct);
-			if (node.children[i].uct == highest_utc_found)
+			highest_utc_found = fmax (highest_utc_found, node.children[i].get_uct());
+			if (node.children[i].get_uct() == highest_utc_found)
 			{
 				highest_utc_found_index = i;
 
@@ -143,8 +211,8 @@ class MCTS
 		int highest_utc_found_index = -999;
 		for (int i = 0; i < node->children.size(); i++)
 		{
-			highest_utc_found = fmax (highest_utc_found, node->children[i].uct);
-			if (node->children[i].uct == highest_utc_found)
+			highest_utc_found = fmax (highest_utc_found, node->children[i].get_uct());
+			if (node->children[i].get_uct() == highest_utc_found)
 			{
 				highest_utc_found_index = i;
 
@@ -159,33 +227,62 @@ class MCTS
 		return node;
 	}
 
-	int simulation (Node node)
+	int simulation_old (Node node)
 	{
 		Node n = node;
 		while (node.board.isWin (node.player) == 0)
 		{
-			node.make_random_opponent_move();
-			vector<vector<Move> > moves = node.board.getAllPossibleMoves (node.player);
-			if (moves.size() == 0) { break; }
-			int rand_i = rand() % moves.size();
-			if (moves[rand_i].size() == 0) { break; }
-			int rand_j = rand() % moves[rand_i].size();
-			Move move = moves[rand_i][rand_j];
-			node.move = move;
-			node.make_move();
 			node.generate_children();
-			node = selection (node);
+			node.make_random_opponent_move();
+			if (node.children.size() == 0) { break; }
+			node = selection (node.children[rand() % node.children.size()]);
 		}
 
 		int score = node.board.blackCount - node.board.whiteCount;
 		// player 1 is Black
-		if ((node.player == 1) && (score > 0))
+		if ((node.player == 1) && (node.board.isWin (node.player) == 1))
 		{
 			return 1;
 		}
-		else if ((node.player == 2) && (score < 0))
+		if ((node.player == 2) && (node.board.isWin (node.player) == 2))
 		{
 			return 1;
+		}
+		if (node.board.isWin (node.player) == -1)
+		{
+			return -1;
+		}
+
+		return 0;
+	}
+
+	int simulation (Node node, int turn)
+	{
+		while (node.board.isWin (node.player) == 0)
+		{
+			// cout << "simulating: " << endl;
+			// node.board.showBoard();
+			if (node.player == 1) {node.generate_children (2);}
+			if (node.player == 2) {node.generate_children (1);}
+			// node.make_random_opponent_move();
+			if (node.children.size() == 0) { break; }
+			vector<Node> v = node.children;
+			node = v[rand() % v.size()];
+		}
+		return node.board.isWin (node.player);
+		int score = node.board.blackCount - node.board.whiteCount;
+		// player 1 is Black
+		if ((node.player == 1) && (node.board.isWin (node.player) == 1))
+		{
+			return 1;
+		}
+		if ((node.player == 2) && (node.board.isWin (node.player) == 2))
+		{
+			return 1;
+		}
+		if (node.board.isWin (node.player) == -1)
+		{
+			return -1;
 		}
 
 		return 0;
@@ -194,12 +291,26 @@ class MCTS
 	void backpropagation (Node* node, int result)
 	{
 		while (node->parent != NULL)
-		{	
+		{
+			// node->board.showBoard();
+
 			node->simulations++;
 			
-			if (result)
+			if (result == 1 && node->player == 1)
 			{
 				node->wins++;
+			}
+			else if (result == 2 && node->player == 2)
+			{
+				node->wins++;
+			}
+			else if (result == -1)
+			{
+				// node->wins += 0.5;
+			}
+			else
+			{
+				// node->wins--;
 			}
 
 			node->update_uct();
@@ -209,40 +320,138 @@ class MCTS
 
 	Move best_move ()
 	{
-		Move m;
 		for (int i = 0; i < root.children.size(); i++)
 		{
-			Node n = root.children[i];
-			m = n.move;
-			root.children[i].make_move();
 			root.simulations += 1;
-			int result = simulation (n);
+			// int result = simulation (root.children[i], root.player);
+			int result = root.children[i].simulate();
 			backpropagation (&root.children[i], result);
 		}
-		
-		for (int i = 0; i < 1000; i++)
+
+		for (int i = 0; i < 100; i++)
 		{
+			root.simulations += 1;
 			Node* n = selection (&root);
 			if (n->children.size() == 0)
 			{
-				n->generate_children();
+				if (n->player == 1) { n->generate_children (2); }
+				if (n->player == 2) { n->generate_children (1); }
 			}
 
-			root.simulations += 1;
-			
-			Node* random_node = &n->children[rand() % n->children.size()];
-			random_node->make_move();
-			int result = simulation (*random_node);
-			backpropagation (random_node, result);		
-			
+			if (n->children.size() == 0) { break; }
+			for (int i = 0; i < n->children.size(); i++)
+			{
+				int result = n->children[i].simulate();
+				backpropagation (&n->children[i], result);
+			}
 		}
+
+		if (DEBUG)
+		{
+		for (int i = 0; i < root.children.size(); i++)
+		{
+			int w = root.children[i].wins;
+			int s = root.children[i].simulations;
+			int p = root.children[i].parent->simulations;
+			double uct = root.children[i].get_uct();
+			cout << "[" << root.children[i].move.toString() << "]" << "[" << w << "]" << "[" << s << "]" << "[" << p << "]" << "[" << uct << "] | ";
+		}
+		cout << endl << "depth ==================" << endl;
+		vector<Node> v;
+		for (int j = 0; j < root.children.size(); j++)
+		{
+
+		v = root.children[j].children;
+		cout << endl << "depth ==================" << endl;
+
+		for (int i = 0; i < v.size(); i++)
+		{
+			int w = v[i].wins;
+			int s = v[i].simulations;
+			int p = v[i].parent->simulations;
+			double uct = v[i].get_uct();
+			cout << "[" << v[i].move.toString() << "]" << "[" << w << "]" << "[" << s << "]" << "[" << p << "]" << "[" << uct << "] | ";
+		}
+		}
+		}
+
+		// for (int i = 0; i < 10; i++)
+		// {
+		// 	Node* n = selection (&root);
+		// 	if (n->children.size() == 0)
+		// 	{
+		// 		if (n->player == 1) { n->generate_children (2); }
+		// 		if (n->player == 2) { n->generate_children (1); }
+		// 	}
+
+		// 	root.simulations += 1;
+		// 	if (n->children.size() == 0) { break; }
+		// 	Node* random_node = &n->children[rand() % n->children.size()];
+		// 	// random_node->make_random_opponent_move();
+		// 	// int result = simulation (*random_node, n->player);
+		// 	int result = random_node->simulate();
+		// 	backpropagation (random_node, result);
+		// 	// for (int i = 0; i < n->children.size(); i++) { n->children[i].board.showBoard(); }
+		// }
+
+		// root.simulations += 1;
+		// int i = 0;
+		// int result = root.children[i].simulate();
+		// backpropagation (&root.children[i], 2);
+		// root.children[i].generate_children (1);
+		// result = root.children[i].children[i].simulate();
+		// backpropagation (&root.children[i].children[i], 2);
+		// root.children[i].children[i].generate_children (1);
+		// result = root.children[i].children[i].children[i].simulate();
+		// backpropagation (&root.children[i].children[i].children[i], 1);
+
+		// vector<Node> v;
+		// v = root.children;
+		// v = root.children[i].children;
+		// v = root.children[i].children[i].children;
+		// if (DEBUG)
+		// {
+		// for (int i = 0; i < root.children.size(); i++)
+		// 	{
+		// 		int w = root.children[i].wins;
+		// 		int s = root.children[i].simulations;
+		// 		int p = root.children[i].parent->simulations;
+		// 		double uct = root.children[i].get_uct();
+		// 		cout << "[" << root.children[i].move.toString() << "]" << "[" << w << "]" << "[" << s << "]" << "[" << p << "]" << "[" << uct << "] | ";
+		// 	}
+		// }
+		// cout << endl << "------" << endl;
+		// {
+		// for (int i = 0; i < root.children[0].children.size(); i++)
+		// 	{
+		// 		int w = root.children[0].children[i].wins;
+		// 		int s = root.children[0].children[i].simulations;
+		// 		int p = root.children[0].children[i].parent->simulations;
+		// 		double uct = root.children[0].children[i].get_uct();
+		// 		cout << "[" << root.children[0].children[i].move.toString() << "]" << "[" << w << "]" << "[" << s << "]" << "[" << p << "]" << "[" << uct << "] | ";
+		// 	}
+		// }
+		// cout << endl << "------" << endl;
+		// for (int i = 0; i < v.size(); i++)
+		// {
+		// 	int w = v[i].wins;
+		// 		int s = v[i].simulations;
+		// 		int p = v[i].parent->simulations;
+		// 		double uct = v[i].get_uct();
+		// 		cout << "[" << v[i].move.toString() << "]" << "[" << w << "]" << "[" << s << "]" << "[" << p << "]" << "[" << uct << "] | ";
+		// }
+
+		// cout << "SELECTIONML: " << selection (&root)->get_uct() << endl;
+
 
 		double highest_utc_found = -999;
 		int highest_utc_found_index = -999;
 		for (int i = 0; i < root.children.size(); i++)
 		{
-			highest_utc_found = fmax (highest_utc_found, root.children[i].uct);
-			if (root.children[i].uct == highest_utc_found)
+			highest_utc_found = fmax (highest_utc_found, root.children[i].simulations);
+			// highest_utc_found = fmax (highest_utc_found, root.children[i].get_uct());
+			if (root.children[i].simulations == highest_utc_found)
+			// if (root.children[i].get_uct() == highest_utc_found)
 			{
 				highest_utc_found_index = i;
 
