@@ -40,6 +40,15 @@ Move StudentAI::mcts (Board board, Move& res, int player)
     vector<vector<Move> > moves = board.getAllPossibleMoves (player);
     res = moves[0][0];
 
+    if (player == 1)
+    {
+        player = 2;
+    }
+    else if (player == 2)
+    {
+        player = 1;
+    }
+    
     MCTS m = MCTS (board, player);
     Move move = m.best_move();
     return move;
