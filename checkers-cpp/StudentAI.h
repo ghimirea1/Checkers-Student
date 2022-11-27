@@ -7,6 +7,7 @@
 #include <ctime>
 #include <cmath>
 #include <string>
+#include <algorithm>
 const bool DEBUG = false;
 
 //The following part should be completed by students.
@@ -46,6 +47,7 @@ class Node
 		uct = 0;
 		move = Move();
 	}
+
 	Node (Node* p, vector<Node> c, Board b, int pl, int w, int s, double u, Move m)
 	{
 		parent = p;
@@ -62,7 +64,7 @@ class Node
 	{
 		if (simulations)
 		{
-			uct = ((wins / simulations) + (2 * sqrt (log (parent->simulations) / simulations)));
+			uct = ((wins / simulations) + (sqrt (2) * sqrt (log (parent->simulations) / simulations)));
 		}
 	}
 
@@ -74,16 +76,25 @@ class Node
 
 	int generate_children()
 	{
-		vector<vector<Move> > moves = board.getAllPossibleMoves (player);
+		int op;
+		if (player == 1)
+		{
+			op = 2;
+		}
+		else if (player == 2)
+		{
+			op = 1;
+		}
+
+		vector<vector<Move> > moves = board.getAllPossibleMoves (op);	
 		for (int i = 0; i < moves.size(); i++) 
         {
             for (int j = 0; j < moves[i].size(); j++)
 			{
-				children.push_back (Node (this, vector<Node>(), board, player, 0, 0, 0, moves[i][j]));
+				children.push_back (Node (this, vector<Node>(), board, op, 0, 0, 0, moves[i][j]));
 			}
-
 		}
-
+		
 		for (int i = 0; i < children.size(); i++)
 		{
 			children[i].make_move();
@@ -121,6 +132,21 @@ class Node
 		}
 	}
 
+	int simulate()
+	{
+		Node n = *this;
+		while (n.board.isWin (player) == 0)
+		{
+			if (DEBUG) { cout << "simulating: " << endl; n.board.showBoard(); }
+			n.generate_children();
+			if (n.children.size() == 0) { break; }
+			vector<Node> v = n.children;
+			srand(time (NULL));
+			n = v[rand() % v.size()];
+		}
+
+		return n.board.isWin (n.player);
+	}
 };
 
 class MCTS
@@ -137,27 +163,6 @@ class MCTS
 	}
 
 	Node root;
-	Node selection (Node node)
-	{
-		double highest_utc_found = -999;
-		int highest_utc_found_index = -999;
-		for (int i = 0; i < node.children.size(); i++)
-		{
-			highest_utc_found = fmax (highest_utc_found, node.children[i].get_uct());
-			if (node.children[i].get_uct() == highest_utc_found)
-			{
-				highest_utc_found_index = i;
-
-			}
-		}
-
-		if (highest_utc_found_index != -999)
-		{
-			return selection (node.children[highest_utc_found_index]);
-		}
-
-		return node;
-	}
 
 	Node* selection (Node* node)
 	{
@@ -169,7 +174,6 @@ class MCTS
 			if (node->children[i].get_uct() == highest_utc_found)
 			{
 				highest_utc_found_index = i;
-
 			}
 		}
 
@@ -181,48 +185,19 @@ class MCTS
 		return node;
 	}
 
-	int simulation (Node node)
-	{
-		Node n = node;
-		while (node.board.isWin (node.player) == 0)
-		{
-			node.generate_children();
-			node.make_random_opponent_move();
-			if (node.children.size() == 0) { break; }
-			node = selection (node.children[rand() % node.children.size()]);
-		}
-
-		int score = node.board.blackCount - node.board.whiteCount;
-		// player 1 is Black
-		if ((node.player == 1) && (node.board.isWin (node.player) == 1))
-		{
-			return 1;
-		}
-		if ((node.player == 2) && (node.board.isWin (node.player) == 2))
-		{
-			return 1;
-		}
-		if (node.board.isWin (node.player) == -1)
-		{
-			return -1;
-		}
-
-		return 0;
-	}
-
 	void backpropagation (Node* node, int result)
 	{
 		while (node->parent != NULL)
-		{	
+		{
 			node->simulations++;
 			
-			if (result == 1)
+			if (result == 1 && node->player == 1)
 			{
 				node->wins++;
 			}
-			else if (result == -1)
+			else if (result == 2 && node->player == 2)
 			{
-				node->wins += 0.5;
+				node->wins++;
 			}
 
 			node->update_uct();
@@ -230,34 +205,35 @@ class MCTS
 		}
 	}
 
-	Move best_move ()
+	Move best_move()
 	{
 		for (int i = 0; i < root.children.size(); i++)
 		{
 			root.simulations += 1;
-			int result = simulation (root.children[i]);
+			int result = root.children[i].simulate();
 			backpropagation (&root.children[i], result);
 		}
 
-		for (int i = 0; i < 1000; i++)
+		for (int i = 0; i < 50; i++)
 		{
+			root.simulations += 1;
 			Node* n = selection (&root);
 			if (n->children.size() == 0)
 			{
 				n->generate_children();
 			}
 
-			root.simulations += 1;
 			if (n->children.size() == 0) { break; }
-			Node* random_node = &n->children[rand() % n->children.size()];
-			random_node->make_random_opponent_move();
-			int result = simulation (*random_node);
-			backpropagation (random_node, result);
+			for (int i = 0; i < n->children.size(); i++)
+			{
+				int result = n->children[i].simulate();
+				backpropagation (&n->children[i], result);
+			}
 		}
 
 		if (DEBUG)
 		{
-		for (int i = 0; i < root.children.size(); i++)
+			for (int i = 0; i < root.children.size(); i++)
 			{
 				int w = root.children[i].wins;
 				int s = root.children[i].simulations;
@@ -265,14 +241,30 @@ class MCTS
 				double uct = root.children[i].get_uct();
 				cout << "[" << root.children[i].move.toString() << "]" << "[" << w << "]" << "[" << s << "]" << "[" << p << "]" << "[" << uct << "] | ";
 			}
+			cout << endl << "==================" << endl;
+			vector<Node> v;
+			for (int j = 0; j < root.children.size(); j++)
+			{
+				v = root.children[j].children;
+				cout << endl << "==================" << endl;
+
+				for (int i = 0; i < v.size(); i++)
+				{
+					int w = v[i].wins;
+					int s = v[i].simulations;
+					int p = v[i].parent->simulations;
+					double uct = v[i].get_uct();
+					cout << "[" << v[i].move.toString() << "]" << "[" << w << "]" << "[" << s << "]" << "[" << p << "]" << "[" << uct << "] | ";
+				}
+			}
 		}
 
 		double highest_utc_found = -999;
 		int highest_utc_found_index = -999;
 		for (int i = 0; i < root.children.size(); i++)
 		{
-			highest_utc_found = fmax (highest_utc_found, root.children[i].get_uct());
-			if (root.children[i].get_uct() == highest_utc_found)
+			highest_utc_found = fmax (highest_utc_found, root.children[i].simulations);
+			if (root.children[i].simulations == highest_utc_found)
 			{
 				highest_utc_found_index = i;
 

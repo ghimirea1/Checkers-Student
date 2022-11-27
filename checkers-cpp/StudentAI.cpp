@@ -25,14 +25,14 @@ Move StudentAI::GetMove(Move move)
     Move res = moves[0][0];
 
     // Minimax move
-    res = minimax_move (board, player);
-    board.makeMove (res, player);
-    return res;
-
-    // Mcts move
-    // res = mcts (board, res, player);
+    // res = minimax_move (board, player);
     // board.makeMove (res, player);
     // return res;
+
+    // Mcts move
+    res = mcts (board, res, player);
+    board.makeMove (res, player);
+    return res;
 }
 
 Move StudentAI::mcts (Board board, Move& res, int player)
@@ -40,6 +40,15 @@ Move StudentAI::mcts (Board board, Move& res, int player)
     vector<vector<Move> > moves = board.getAllPossibleMoves (player);
     res = moves[0][0];
 
+    if (player == 1)
+    {
+        player = 2;
+    }
+    else if (player == 2)
+    {
+        player = 1;
+    }
+    
     MCTS m = MCTS (board, player);
     Move move = m.best_move();
     return move;
