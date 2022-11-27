@@ -7,6 +7,7 @@
 #include <ctime>
 #include <cmath>
 #include <string>
+#include <algorithm>
 const bool DEBUG = false;
 
 //The following part should be completed by students.
@@ -213,7 +214,7 @@ class MCTS
 			backpropagation (&root.children[i], result);
 		}
 
-		for (int i = 0; i < 100; i++)
+		for (int i = 0; i < 50; i++)
 		{
 			root.simulations += 1;
 			Node* n = selection (&root);
@@ -223,10 +224,6 @@ class MCTS
 			}
 
 			if (n->children.size() == 0) { break; }
-			// srand (time (NULL));
-			// Node* n_rand = &n->children[rand() % n->children.size()];
-			// int result = n_rand->simulate();
-			// backpropagation (n_rand, result);
 			for (int i = 0; i < n->children.size(); i++)
 			{
 				int result = n->children[i].simulate();
