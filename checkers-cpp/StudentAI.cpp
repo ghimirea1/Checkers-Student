@@ -24,11 +24,6 @@ Move StudentAI::GetMove(Move move)
     vector<vector<Move> > moves = board.getAllPossibleMoves (player);
     Move res = moves[0][0];
 
-    // Minimax move
-    // res = minimax_move (board, player);
-    // board.makeMove (res, player);
-    // return res;
-
     // Mcts move
     res = mcts (board, res, player);
     board.makeMove (res, player);
