@@ -214,7 +214,7 @@ class MCTS
 			backpropagation (&root.children[i], result);
 		}
 
-		for (int i = 0; i < 50; i++)
+		for (int i = 0; i < 100; i++)
 		{
 			root.simulations += 1;
 			Node* n = selection (&root);
